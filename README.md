@@ -1,5 +1,4 @@
-# Gene-Bank---PsA-and-AS
-# RheumaGenes: Genomic Catalog for PsA and AS
+## RheumaGenes: Genomic Catalog for PsA and AS
 
 ## Visão Geral
 Este repositório está sendo construído desde 2023 e contém o pipeline de estruturação e a interface de exploração de um catálogo genômico focado em Artrite Psoriásica (PsA) e Espondilite Anquilosante (AS). O sistema automatiza a conversão de um arquivo plano de curadoria manual para um banco de dados relacional SQLite e disponibiliza uma aplicação web interativa em Streamlit.
