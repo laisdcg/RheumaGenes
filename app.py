@@ -15,6 +15,7 @@ def query_database(busca_gene, filtro_doenca, busca_desc, filtro_cromo, apenas_i
             g.chromosome as Cromossomo, 
             g.start_pos as Posicao_Inicial,
             g.end_pos as Posicao_Final,
+            g.strand as Strand,
             GROUP_CONCAT(DISTINCT d.name) as Doencas, 
             GROUP_CONCAT(DISTINCT e.source) as Fontes
         FROM Gene g
@@ -42,7 +43,7 @@ def query_database(busca_gene, filtro_doenca, busca_desc, filtro_cromo, apenas_i
         base_query += f" AND d.name IN ({placeholders})"
         params.extend(filtro_doenca)
         
-    base_query += " GROUP BY g.symbol, g.accession, g.chromosome, g.start_pos, g.end_pos, g.description"
+    base_query += " GROUP BY g.symbol, g.accession, g.chromosome, g.start_pos, g.end_pos, g.strand, g.description"
     
     if apenas_interseccao:
         base_query += " HAVING COUNT(DISTINCT d.name) = 2"
