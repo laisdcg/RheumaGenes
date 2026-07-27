@@ -10,14 +10,14 @@ def query_database(busca_gene, filtro_doenca, busca_desc, filtro_cromo, apenas_i
     base_query = '''
         SELECT 
             g.symbol as Gene, 
-            g.description as Descricao,
+            g.description as Description,
             g.accession as Accession,
-            g.chromosome as Cromossomo, 
+            g.chromosome as Chromosome, 
             g.strand as Strand,
-            g.start_pos as Posicao_Inicial,
-            g.end_pos as Posicao_Final,
-            GROUP_CONCAT(DISTINCT d.name) as Doencas, 
-            GROUP_CONCAT(DISTINCT e.source) as Fontes
+            g.start_pos as Starting_Position,
+            g.end_pos as Final_Position,
+            GROUP_CONCAT(DISTINCT d.name) as Disease, 
+            GROUP_CONCAT(DISTINCT e.source) as Source
         FROM Gene g
         JOIN Gene_Disease_Evidence e ON g.symbol = e.gene_symbol
         JOIN Disease d ON e.disease_id = d.id
