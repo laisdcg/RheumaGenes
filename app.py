@@ -2,71 +2,74 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 
-# Configuração da página
 st.set_page_config(page_title="Catálogo: PsA & AS", layout="wide")
 
-# Função com cache para não sobrecarregar o banco de dados a cada interação
-@st.cache_data
-def load_data():
+# Função que executa buscas parametrizadas diretamente no banco
+def query_database(gene_search, selected_diseases, fdr_threshold):
     conn = sqlite3.connect('rheuma_genes.db')
-    query = '''
+    
+    # A query agora exige dados quantitativos (logFC e FDR) que DEVEM estar no banco
+    base_query = '''
         SELECT 
             g.symbol as Gene, 
             g.chromosome as Cromossomo, 
-            g.start_pos as Posicao_Inicial,
-            g.end_pos as Posicao_Final,
-            g.description as Descricao, 
             d.name as Doenca, 
+            e.logfc as Log2FoldChange,
+            e.fdr as FDR,
             GROUP_CONCAT(e.source, '; ') as Fontes
         FROM Gene g
-        JOIN Gene_Disease_Evidence e ON g.symbol = e.gene_symbol
-        JOIN Disease d ON e.disease_id = d.id
-        GROUP BY g.symbol, g.chromosome, g.start_pos, g.end_pos, g.description, d.name
+        JOIN Expression_Result e ON g.symbol = e.gene_symbol
+        JOIN Disease d ON e.study_id = d.id -- Ajustado para refletir a tabela relacional correta
+        WHERE 1=1
     '''
-    df = pd.read_sql_query(query, conn)
+    params = []
+    
+    if gene_search:
+        base_query += " AND g.symbol LIKE ?"
+        params.append(f"%{gene_search.upper()}%")
+        
+    if selected_diseases:
+        placeholders = ', '.join(['?'] * len(selected_diseases))
+        base_query += f" AND d.name IN ({placeholders})"
+        params.extend(selected_diseases)
+        
+    # Filtro aplicado diretamente no banco de dados
+    base_query += " AND e.fdr <= ?"
+    params.append(fdr_threshold)
+    
+    base_query += " GROUP BY g.symbol, g.chromosome, d.name, e.logfc, e.fdr"
+    
+    df = pd.read_sql_query(base_query, conn, params=params)
     conn.close()
     return df
 
-df = load_data()
-
 st.title("🧬 Catálogo Genômico: Artrite Psoriásica e Espondilite Anquilosante")
 
-# Barra lateral (Sidebar) para os inputs de filtro
-st.sidebar.header("Filtros de Análise")
+st.sidebar.header("Filtros Analíticos")
 
+# Inputs
 busca_gene = st.sidebar.text_input("Buscar Gene (ex: IL22)")
 
-doencas = df['Doenca'].unique()
-filtro_doenca = st.sidebar.multiselect("Filtrar por Condição", doencas, default=doencas)
+# O ideal é extrair isso do banco via query, mas mantido estático para exemplo
+doencas_disponiveis = ['Psoriatic Arthritis', 'Ankylosing Spondylitis']
+filtro_doenca = st.sidebar.multiselect("Filtrar por Condição", doencas_disponiveis, default=doencas_disponiveis)
 
-cromossomos = sorted(df['Cromossomo'].dropna().astype(str).unique())
-filtro_cromo = st.sidebar.multiselect("Filtrar por Cromossomo", cromossomos)
+# Novo filtro estrito
+filtro_fdr = st.sidebar.slider("FDR Máximo Permitido (Significância)", min_value=0.01, max_value=0.10, value=0.05, step=0.01)
 
-# Lógica de aplicação dos filtros no dataframe
-df_filtrado = df.copy()
+# Executa a query apenas quando necessário, trazendo dados já reduzidos
+df_filtrado = query_database(busca_gene, filtro_doenca, filtro_fdr)
 
-if busca_gene:
-    df_filtrado = df_filtrado[df_filtrado['Gene'].str.contains(busca_gene.upper(), na=False)]
-
-if filtro_doenca:
-    df_filtrado = df_filtrado[df_filtrado['Doenca'].isin(filtro_doenca)]
-
-if filtro_cromo:
-    df_filtrado = df_filtrado[df_filtrado['Cromossomo'].isin(filtro_cromo)]
-
-# Métricas rápidas no topo
 col1, col2 = st.columns(2)
 col1.metric("Anotações Retornadas", len(df_filtrado))
-col2.metric("Genes Únicos Retornados", df_filtrado['Gene'].nunique())
+col2.metric("Genes Únicos", df_filtrado['Gene'].nunique())
 
-# Tabela principal interativa
 st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
-# Opção para exportar os resultados específicos da busca
-csv = df_filtrado.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label="Exportar seleção como CSV",
-    data=csv,
-    file_name="genes_selecionados.csv",
-    mime="text/csv",
-)
+if not df_filtrado.empty:
+    st.download_button(
+        label="Exportar Matriz Filtrada (CSV)",
+        data=df_filtrado.to_csv(index=False).encode('utf-8'),
+        file_name="matriz_transcriptomica_filtrada.csv",
+        mime="text/csv",
+    )
