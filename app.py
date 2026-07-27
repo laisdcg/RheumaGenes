@@ -12,7 +12,7 @@ def query_database(busca_gene, filtro_doenca, busca_desc, filtro_cromo, apenas_i
             g.symbol as Gene, 
             g.description as Descricao,
             g.accession as Accession,
-            g.chromosome as Cromossomo,
+            g.chromosome as Cromossomo, 
             g.strand as Strand,
             g.start_pos as Posicao_Inicial,
             g.end_pos as Posicao_Final,
@@ -43,7 +43,7 @@ def query_database(busca_gene, filtro_doenca, busca_desc, filtro_cromo, apenas_i
         base_query += f" AND d.name IN ({placeholders})"
         params.extend(filtro_doenca)
         
-    base_query += " GROUP BY g.symbol, g.accession, g.chromosome,g.strand, g.start_pos, g.end_pos, g.description"
+    base_query += " GROUP BY g.symbol, g.accession, g.chromosome, g.strand, g.start_pos, g.end_pos, g.description"
     
     if apenas_interseccao:
         base_query += " HAVING COUNT(DISTINCT d.name) = 2"
@@ -85,7 +85,7 @@ st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
 if not df_filtrado.empty:
     st.download_button(
-        label="Exportar Tabela Atual (CSV)",
+        label="Export Current Table (CSV)",
         data=df_filtrado.to_csv(index=False).encode('utf-8'),
         file_name="catalogo_genes_filtrado.csv",
         mime="text/csv",
