@@ -4,22 +4,20 @@ import sqlite3
 
 st.set_page_config(page_title="Catálogo: PsA & AS", layout="wide")
 
-# Função que executa buscas parametrizadas diretamente no banco
-def query_database(gene_search, selected_diseases, fdr_threshold):
+def query_database(gene_search, selected_diseases):
+    # Conexão com o banco de dados local carregado no Streamlit Cloud
     conn = sqlite3.connect('rheuma_genes.db')
     
-    # A query agora exige dados quantitativos (logFC e FDR) que DEVEM estar no banco
+    # Query ajustada para o esquema real do seu banco (Gene_Disease_Evidence)
     base_query = '''
         SELECT 
             g.symbol as Gene, 
             g.chromosome as Cromossomo, 
             d.name as Doenca, 
-            e.logfc as Log2FoldChange,
-            e.fdr as FDR,
             GROUP_CONCAT(e.source, '; ') as Fontes
         FROM Gene g
-        JOIN Expression_Result e ON g.symbol = e.gene_symbol
-        JOIN Disease d ON e.study_id = d.id -- Ajustado para refletir a tabela relacional correta
+        JOIN Gene_Disease_Evidence e ON g.symbol = e.gene_symbol
+        JOIN Disease d ON e.disease_id = d.id
         WHERE 1=1
     '''
     params = []
@@ -33,11 +31,7 @@ def query_database(gene_search, selected_diseases, fdr_threshold):
         base_query += f" AND d.name IN ({placeholders})"
         params.extend(selected_diseases)
         
-    # Filtro aplicado diretamente no banco de dados
-    base_query += " AND e.fdr <= ?"
-    params.append(fdr_threshold)
-    
-    base_query += " GROUP BY g.symbol, g.chromosome, d.name, e.logfc, e.fdr"
+    base_query += " GROUP BY g.symbol, g.chromosome, d.name"
     
     df = pd.read_sql_query(base_query, conn, params=params)
     conn.close()
@@ -50,16 +44,16 @@ st.sidebar.header("Filtros Analíticos")
 # Inputs
 busca_gene = st.sidebar.text_input("Buscar Gene (ex: IL22)")
 
-# O ideal é extrair isso do banco via query, mas mantido estático para exemplo
+# Doenças padronizadas conforme a inserção no banco
 doencas_disponiveis = ['Psoriatic Arthritis', 'Ankylosing Spondylitis']
 filtro_doenca = st.sidebar.multiselect("Filtrar por Condição", doencas_disponiveis, default=doencas_disponiveis)
 
-# Novo filtro estrito
-filtro_fdr = st.sidebar.slider("FDR Máximo Permitido (Significância)", min_value=0.01, max_value=0.10, value=0.05, step=0.01)
+# O slider de FDR foi removido, pois seus dados atuais não o suportam.
 
-# Executa a query apenas quando necessário, trazendo dados já reduzidos
-df_filtrado = query_database(busca_gene, filtro_doenca, filtro_fdr)
+# Execução dinâmica da query
+df_filtrado = query_database(busca_gene, filtro_doenca)
 
+# Métricas
 col1, col2 = st.columns(2)
 col1.metric("Anotações Retornadas", len(df_filtrado))
 col2.metric("Genes Únicos", df_filtrado['Gene'].nunique())
