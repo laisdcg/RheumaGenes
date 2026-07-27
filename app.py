@@ -58,7 +58,7 @@ def get_chromosomes():
     chromosomes = [c for c in df_c['chromosome'].tolist() if str(c).strip()]
     return sorted(chromosomes, key=lambda x: (str(x).zfill(2) if str(x).isdigit() else x))
 
-st.title("🧬 Rheuma Genes")
+st.title("🧬 RheumaGenes: Genomic Catalog for PsA and AS")
 
 st.sidebar.header("Analytical Filters")
 
